@@ -16,7 +16,7 @@
 同步数据使用同一个 GitHub Secret Gist。Secret Gist 只是“不参与公开搜索”，并非真正私有，因此配置正文会用独立口令通过 AES-GCM 加密。
 
 1. 在 Translator 的设置中打开数据同步，选择 `GitHub Gist`。
-2. 使用只授予 `gist` 权限的专用 GitHub classic PAT，不要使用 `gh auth token` 或带 `repo` 权限的日常令牌。
+2. [创建只授予 `gist` 权限的专用 GitHub classic PAT](https://github.com/settings/tokens/new?scopes=gist&description=Tampermonkey%20settings%20sync)，不要使用 `gh auth token` 或带 `repo` 权限的日常令牌。
 3. 设置一个独立、至少 6 个字符的加密口令，然后执行一次“立即同步”。
 4. 在 Translator 中复制以 `kt_` 开头的同步码。
 5. 打开 Dark Model 的“网页黑暗模式设置”，把同步码粘贴到“设备同步”，选择“连接并同步”。
