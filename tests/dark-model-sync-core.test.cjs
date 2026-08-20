@@ -66,18 +66,10 @@ test('encrypts and decrypts the complete sync document', async () => {
     );
 });
 
-test('imports the existing Translator kt_ Gist share token', () => {
-    const payload = {
-        syncType: 'gist',
-        syncUrl: 'https://gist.github.com/AlexbeatsZ/abcdef123456',
-        syncUser: '',
-        syncKey: 'github-token-placeholder',
-        syncEncryptKey: 'encryption-passphrase',
-    };
-    const token = `kt_${Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')}`;
-    assert.deepEqual(core.parseTranslatorSyncToken(token), {
-        gistId: 'abcdef123456',
-        githubToken: 'github-token-placeholder',
-        encryptionKey: 'encryption-passphrase',
-    });
+test('normalizes a Gist id from either an id or a URL', () => {
+    assert.equal(core.gistIdFromValue('abcdef123456'), 'abcdef123456');
+    assert.equal(
+        core.gistIdFromValue('https://gist.github.com/AlexbeatsZ/abcdef123456'),
+        'abcdef123456'
+    );
 });

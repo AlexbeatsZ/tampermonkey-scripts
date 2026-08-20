@@ -7,7 +7,8 @@
 - 已从下载目录导入 AI Conversation Navigator、ChatGPT Copy Fix、Dark Model；LinkSwift 未导入。来源 SHA-256 记录在 `imports.json`。
 - Translator 已由 `AlexbeatsZ/kiss-translator` 和 GitHub Pages 发布，不在本仓库重复维护。
 - 三个本地脚本已写入公开 `@updateURL`；公开仓库为 `AlexbeatsZ/tampermonkey-scripts`，默认分支 `main`。
-- Dark Model 2.1 使用 Translator 的 `kt_` GitHub Gist 同步码，按规则合并并端到端加密；个人网站列表已从公开源码默认值移除。
+- Dark Model 2.1.1 直接接受 GitHub Gist 专用令牌与加密口令，按规则合并并端到端加密；个人网站列表已从公开源码默认值移除。
+- Translator v2.0.29 在网页翻译页提供可见同步卡片，只同步 `transOpen: "false"` 的“不自动翻译的网站”域名列表；语言、引擎、API、快捷键、调优、字幕和其他规则字段一律不同步。
 - 远端主提交 `0979a71` 已发布；三个 Raw 脚本和同步库均验证 HTTP 200，远端树无 LinkSwift。
 - 同步设计：`docs/design/sync-architecture.md`。修改更新地址、凭据处理、合并或同步 UI 前必须阅读。
 
@@ -18,7 +19,7 @@
 - [x] 为 Dark Model 添加加密 Gist 同步、逐规则冲突合并、删除墓碑、每日拉取和修改后上传。
 - [x] 运行完整验证，创建公开 GitHub 仓库，提交并推送。
 - [x] 验证远端树、Raw 安装地址和 LinkSwift 不存在。
-- [ ] 用户在 Translator 创建最小 `gist` 权限令牌和加密口令，并在各设备导入 `kt_` 同步码。
+- [ ] 完成两仓库构建、测试和发布后，由用户在各设备填写相同的最小 `gist` 权限令牌与加密口令。
 
 # Build / Run / Test
 

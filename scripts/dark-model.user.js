@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Model
 // @namespace    https://darkreader.org/
-// @version      2.1.0-dr4.9.128
+// @version      2.1.1-dr4.9.128
 // @description  按网站选择 Dark Reader、滤镜反色或关闭；支持规则管理、加密 GitHub Gist 同步和每日拉取。
 // @author       Dark Reader Ltd.; controller adapter assembled for local use
 // @homepageURL  https://github.com/AlexbeatsZ/tampermonkey-scripts
@@ -318,7 +318,7 @@ const __viaDarkReaderChrome={runtime:{}};/**
     async function performSync(force = false) {
         const state = readSyncState();
         if (!syncConfigured(state)) {
-            if (force) throw new Error('请先导入 Translator 的 GitHub Gist 同步码');
+            if (force) throw new Error('请先填写 GitHub Gist 令牌和加密口令');
             return { skipped: true };
         }
         if (!force && !state.dirty && Date.now() - state.lastSyncAt < SYNC_INTERVAL_MS) {
@@ -381,16 +381,25 @@ const __viaDarkReaderChrome={runtime:{}};/**
         return syncInFlight;
     }
 
-    function configureSync(syncToken) {
+    function configureSync({ githubToken, encryptionKey, gistId }) {
         if (!syncCore) throw new Error('同步组件没有加载，请检查脚本更新是否完整');
-        const credentials = syncCore.parseTranslatorSyncToken(syncToken);
         const previous = readSyncState() || {};
+        const nextGithubToken = String(githubToken || previous.githubToken || '').trim();
+        const nextEncryptionKey = String(encryptionKey || previous.encryptionKey || '');
+        const nextGistId = syncCore.gistIdFromValue(gistId) || previous.gistId || '';
+        if (!nextGithubToken) throw new Error('GitHub Gist 令牌不能为空');
+        if (nextEncryptionKey.length < 6) throw new Error('同步加密口令至少需要 6 个字符');
+        const credentialsChanged = nextGithubToken !== previous.githubToken
+            || nextEncryptionKey !== previous.encryptionKey
+            || nextGistId !== previous.gistId;
         const state = {
             ...previous,
-            ...credentials,
+            gistId: nextGistId,
+            githubToken: nextGithubToken,
+            encryptionKey: nextEncryptionKey,
             deviceId: previous.deviceId || '',
-            document: null,
-            lastSyncAt: 0,
+            document: credentialsChanged ? null : previous.document || null,
+            lastSyncAt: credentialsChanged ? 0 : Number(previous.lastSyncAt || 0),
             dirty: true,
         };
         ensureDeviceId(state);
@@ -700,9 +709,13 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
 
     <div class="card">
       <div class="label">设备同步（每天自动拉取；本地改动会尽快上传）</div>
-      <div class="small">先在 Translator 的 GitHub Gist 同步页完成同步并复制 <code>kt_</code> 同步码，再粘贴到这里。站点规则会端到端加密；GitHub 令牌和加密口令只保存在本机。</div>
+      <div class="small">填写与 Translator 相同的 GitHub Gist 专用令牌和加密口令。Dark Model 只同步自己的按网站模式；数据会端到端加密，凭据只保存在本机。</div>
       <div class="row" style="margin-top:10px">
-        <input type="password" id="syncToken" autocomplete="off" placeholder="粘贴 Translator 生成的 kt_ 同步码">
+        <input type="password" id="syncGithubToken" autocomplete="new-password" placeholder="GitHub Gist 专用令牌（仅 gist 权限）">
+        <input type="password" id="syncEncryptionKey" autocomplete="new-password" placeholder="同步加密口令（至少 6 个字符）">
+      </div>
+      <div class="row" style="margin-top:9px">
+        <input id="syncGistId" autocomplete="off" placeholder="Gist ID 或网址（可选，留空自动查找/创建）">
         <button class="primary" id="saveSync">连接并同步</button>
       </div>
       <div class="row" style="margin-top:9px">
@@ -865,10 +878,14 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
         });
 
         $('#saveSync').addEventListener('click', async () => {
-            const token = $('#syncToken').value.trim();
             try {
-                configureSync(token);
-                $('#syncToken').value = '';
+                configureSync({
+                    githubToken: $('#syncGithubToken').value,
+                    encryptionKey: $('#syncEncryptionKey').value,
+                    gistId: $('#syncGistId').value,
+                });
+                $('#syncGithubToken').value = '';
+                $('#syncEncryptionKey').value = '';
                 syncStatus('正在连接并合并远端规则…');
                 await syncNow(true);
                 renderRules();
@@ -893,7 +910,9 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
 
         $('#disconnectSync').addEventListener('click', () => {
             disconnectSync();
-            $('#syncToken').value = '';
+            $('#syncGithubToken').value = '';
+            $('#syncEncryptionKey').value = '';
+            $('#syncGistId').value = '';
             syncStatus('已删除本机 Gist 令牌、加密口令和同步元数据；网站规则仍保留在本机。');
         });
 
@@ -921,7 +940,7 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
     Object.defineProperty(globalThis, '__DarkModeController', {
         configurable: true,
         value: Object.freeze({
-            version: '2.1.0 / Dark Reader API 4.9.128',
+            version: '2.1.1 / Dark Reader API 4.9.128',
             openSettings,
             cycle: cycleCurrentMode,
             mode: () => resolveMode(readConfig()),

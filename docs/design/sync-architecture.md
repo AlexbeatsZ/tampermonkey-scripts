@@ -5,14 +5,14 @@ Read this document before changing update URLs, remote storage, credential handl
 ## Scope
 
 - Script code: AI Conversation Navigator, ChatGPT Copy Fix, and Dark Model are published from this repository. Translator remains published by `AlexbeatsZ/kiss-translator`.
-- Runtime data: only Dark Model site-mode rules and the data already selected by Translator's built-in sync are synchronized.
+- Runtime data: Dark Model site-mode rules and only Translator's no-auto-translate website patterns are synchronized.
 - Explicit exclusion: LinkSwift is not imported, committed, published, or referenced as an install target.
 
 ## Separation of code and data
 
 Tampermonkey needs an unauthenticated `@updateURL`, so installable script code is public. Runtime data never enters the Git repository.
 
-Translator and Dark Model share one GitHub Secret Gist for convenience, but use separate files. Dark Model writes `dark-model-config_v1.json`; Translator keeps its existing filenames. A Secret Gist is unlisted rather than access-controlled, so every Dark Model document is encrypted before upload.
+Translator and Dark Model share one GitHub Secret Gist for convenience, but use separate files. Dark Model writes `dark-model-config_v1.json`; Translator writes `translator-site-exclusions_v1.json`. A Secret Gist is unlisted rather than access-controlled, so both documents are encrypted before upload.
 
 Credentials stay in the local userscript manager storage:
 
@@ -20,7 +20,7 @@ Credentials stay in the local userscript manager storage:
 - encryption passphrase: independent from the GitHub password and token;
 - Gist id and per-device sync metadata.
 
-Neither credentials nor the `kt_` transfer token may appear in logs, exported Dark Model JSON, Git history, Issues, or documentation examples using real values.
+Credentials may not appear in logs, exported configuration JSON, Git history, Issues, or documentation examples using real values.
 
 ## Dark Model remote document
 
@@ -57,16 +57,16 @@ Decryption failure is a hard stop. Never overwrite an unreadable remote file wit
 - A clean device pulls at least once per 24 hours. Manual sync always bypasses the interval.
 - Only the top-level frame runs scheduled sync to avoid duplicate API traffic.
 
-## Translator compatibility
+## Translator scope and credential entry
 
-Dark Model accepts the existing Translator `kt_` transfer token only when `syncType` is `gist`. It extracts the Gist id, dedicated PAT, and encryption passphrase locally. It must not modify Translator files inside the Gist.
+Both settings pages accept the dedicated PAT and encryption passphrase directly. A Gist ID is optional; leaving it blank finds the newest Gist with the shared description or creates one. Each script stores credentials only in its own local storage and never modifies the other script's file.
 
-Translator's existing sync uses whole-file timestamp arbitration. Avoid editing the same Translator settings concurrently on two offline devices unless that implementation is later upgraded to field-level merge.
+Translator derives its remote data exclusively from non-global rules whose `transOpen` is exactly `"false"`. It never serializes global settings, translation profiles, provider credentials, shortcuts, tuning, subtitles, selectors, injected code, custom styles, or other rule fields. Like Dark Model, it merges per website and retains deletion tombstones.
 
 ## Acceptance
 
 - All installable scripts parse with Node.
-- Sync core tests cover cross-device merge, deletion tombstones, deterministic ties, encryption round trips, wrong-passphrase refusal, and Translator token import.
+- Sync core tests cover cross-device merge, deletion tombstones, deterministic ties, encryption round trips, and wrong-passphrase refusal. Translator tests additionally enforce the narrow extraction and application boundary.
 - Public files contain no known token formats or private/Tailscale IP addresses.
 - Every local script has the expected public `@updateURL`; Translator's catalog entry points to its existing publisher.
 - GitHub remote commit and raw install URLs are checked after push.
