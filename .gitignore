@@ -1,0 +1,5 @@
+.env
+.env.*
+*.token
+*.secret
+sync-credentials*.json

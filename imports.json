@@ -1,0 +1,34 @@
+{
+  "importedAt": "2026-08-21",
+  "sourceDirectory": "C:\\Users\\Meta\\Downloads",
+  "excluded": [
+    "LinkSwift"
+  ],
+  "scripts": [
+    {
+      "name": "AI Conversation Navigator",
+      "sourceFile": "ac7b8254-f940-4033-a0ad-9d165be12b79.txt",
+      "sourceSha256": "3745897122AF7820E2E2B10E932A45BA3502DAE571CAF4DE3AE1DD4A70B2E6C7",
+      "destination": "scripts/ai-conversation-navigator.user.js"
+    },
+    {
+      "name": "ChatGPT Copy Fix",
+      "sourceFile": "625b9c58-8ee8-44fc-b65c-fbc03797264c.txt",
+      "sourceSha256": "0B65EEAC418A74B69B023EC081EF78A26D9DCDB2B682663176BBB54D9DBBAA63",
+      "destination": "scripts/chatgpt-copy-fix.user.js"
+    },
+    {
+      "name": "Dark Model",
+      "sourceFile": "c0e39b14-7afd-4499-bb53-9e8bc00ac171.txt",
+      "sourceSha256": "225939892981F48287429DB6393627D4EADB87E41D274C70574C0C6E48D38817",
+      "destination": "scripts/dark-model.user.js"
+    },
+    {
+      "name": "Translator",
+      "sourceFile": "6d869e08-8a74-470e-ab79-fdbf9d9a0bc5.txt",
+      "sourceSha256": "37552B63F62FF31292383BE3504E6B844CCCEA5E038EAB7FEA95796A30BC1C89",
+      "externalRepository": "https://github.com/AlexbeatsZ/kiss-translator",
+      "installUrl": "https://alexbeatsz.github.io/kiss-translator/kiss-translator.user.js"
+    }
+  ]
+}
