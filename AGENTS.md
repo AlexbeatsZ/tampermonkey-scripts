@@ -18,7 +18,7 @@
 # Active Work
 
 - [x] Migrate Dark Model sync from GitHub Gist to the private ROG backend with a separate /v1/dark-model-config document.
-- [ ] Deploy the updated ROG server, publish Dark Model, and verify OMEN/Mac/ROG runtime sync.
+- [x] Deploy the updated ROG server, publish Dark Model, and verify OMEN/Mac/ROG runtime sync. Verified 2026-09-11: Dark Model central state has 34 effective rules, KISS remains at 49 site exclusions, and ROG storage is AES-256-GCM ciphertext.
 
 - [x] 导入脚本并排除 LinkSwift。
 - [x] 添加自动更新地址、来源清单、秘密扫描和同步核心测试。
