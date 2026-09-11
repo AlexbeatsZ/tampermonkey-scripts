@@ -4,6 +4,8 @@
 
 # Current State
 
+- 2026-09-11: Dark Model v2.1.2-dr4.9.128 migrates runtime sync from GitHub Gist to the private ROG loopback service at 127.0.0.1:17892. OMEN/Mac reuse SSH-over-Tailscale forwards; automatic pull interval is 1 hour; legacy Gist credentials are scrubbed on state write.
+
 - 已从下载目录导入 AI Conversation Navigator、ChatGPT Copy Fix、Dark Model；LinkSwift 未导入。来源 SHA-256 记录在 `imports.json`。
 - Translator 已由 `AlexbeatsZ/kiss-translator` 和 GitHub Pages 发布，不在本仓库重复维护。
 - 三个本地脚本已写入公开 `@updateURL`；公开仓库为 `AlexbeatsZ/tampermonkey-scripts`，默认分支 `main`。
@@ -14,6 +16,9 @@
 - 同步设计：`docs/design/sync-architecture.md`。修改更新地址、凭据处理、合并或同步 UI 前必须阅读。
 
 # Active Work
+
+- [x] Migrate Dark Model sync from GitHub Gist to the private ROG backend with a separate /v1/dark-model-config document.
+- [ ] Deploy the updated ROG server, publish Dark Model, and verify OMEN/Mac/ROG runtime sync.
 
 - [x] 导入脚本并排除 LinkSwift。
 - [x] 添加自动更新地址、来源清单、秘密扫描和同步核心测试。

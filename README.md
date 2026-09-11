@@ -11,18 +11,11 @@
 
 第一次在现有设备上点击以上链接并覆盖安装后，脚本会获得新的更新地址。随后在篡改猴设置中把“检查脚本更新间隔”设为每天；仓库内三个脚本和 Translator 都会使用各自的 `@updateURL` 更新。
 
-## Translator 与 Dark Model 配置同步
+## Translator / Dark Model multi-device sync
 
-同步数据使用同一个 GitHub Secret Gist。Secret Gist 只是“不参与公开搜索”，并非真正私有，因此配置正文会用独立口令通过 AES-GCM 加密。
+Both userscripts now use the private ROG loopback sync service instead of GitHub Gist. ROG hosts `127.0.0.1:17892`; OMEN and Mac reuse their SSH-over-Tailscale local forwards, so the userscripts always talk to the same loopback URL.
 
-1. [创建只授予 `gist` 权限的专用 GitHub classic PAT](https://github.com/settings/tokens/new?scopes=gist&description=Tampermonkey%20settings%20sync)，不要使用 `gh auth token` 或带 `repo` 权限的日常令牌。
-2. 在 Translator 的“网页翻译”页找到紧跟网站列表的“不自动翻译网站 · 设备同步”，填写 PAT 和一个独立、至少 6 个字符的加密口令，然后选择“连接并同步”。
-3. 打开 Dark Model 的“网页黑暗模式设置”，在“设备同步”填写同一个 PAT 和加密口令，选择“连接并同步”。Gist ID 留空即可自动发现 Translator 创建的 Gist。
-4. 在其他设备安装脚本后重复第 2–3 步。
-
-PAT 和加密口令应当像密码一样保管，不要发到聊天、Issue、仓库或公开剪贴板服务。
-
-Translator **只同步“不自动翻译的网站”域名列表**；语言、翻译引擎、API、快捷键、翻译调优、字幕设置和其他网站规则字段均不同步。Dark Model 只同步自己的按网站模式。两者都按网站逐项合并，多设备删除使用墓碑记录，避免旧设备恢复已删除的项目；本地修改会尽快上传，每 24 小时至少拉取一次。
+Dark Model synchronizes only its default mode and per-site `darkreader/filter/off` rules. Local edits upload after a short debounce, clean devices pull once per hour, and `????` forces a pull/merge immediately. Server data is AES-256-GCM encrypted at rest. No GitHub token, Gist ID, or sync passphrase is required in the userscript.
 
 ## 验证
 

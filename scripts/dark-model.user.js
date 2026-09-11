@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Dark Model
 // @namespace    https://darkreader.org/
-// @version      2.1.1-dr4.9.128
-// @description  按网站选择 Dark Reader、滤镜反色或关闭；支持规则管理、加密 GitHub Gist 同步和每日拉取。
+// @version      2.1.2-dr4.9.128
+// @description  Per-site Dark Reader/filter/off controller with private ROG sync and hourly pull.
 // @author       Dark Reader Ltd.; controller adapter assembled for local use
 // @homepageURL  https://github.com/AlexbeatsZ/tampermonkey-scripts
 // @downloadURL  https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/dark-model.user.js
 // @updateURL    https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/dark-model.user.js
-// @require      https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/lib/dark-model-sync-core.js?v=1
+// @require      https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/lib/dark-model-sync-core.js?v=2
 // @match        http://*/*
 // @match        https://*/*
 // @run-at       document-start
@@ -17,7 +17,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
-// @connect      api.github.com
+// @connect      127.0.0.1
 // @license      MIT
 // ==/UserScript==
 
@@ -72,10 +72,10 @@ const __viaDarkReaderChrome={runtime:{}};/**
 
     const api = globalThis.DarkReader;
     const CONFIG_KEY = '__unified_dark_mode_controller_v1__';
-    const SYNC_STATE_KEY = '__dark_model_gist_sync_v1__';
-    const GIST_DESCRIPTION = 'kiss translator sync files';
-    const GIST_FILENAME = 'dark-model-config_v1.json';
-    const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const SYNC_STATE_KEY = '__dark_model_local_sync_v1__';
+    const LEGACY_SYNC_STATE_KEY = '__dark_model_gist_sync_v1__';
+    const LOCAL_SYNC_ENDPOINT = 'http://127.0.0.1:17892';
+    const SYNC_INTERVAL_MS = 60 * 60 * 1000;
     const syncCore = globalThis.DarkModelSyncCore;
     const MODES = Object.freeze({
         DARKREADER: 'darkreader',
@@ -99,7 +99,7 @@ const __viaDarkReaderChrome={runtime:{}};/**
     const DEFAULT_CONFIG = Object.freeze({
         version: 1,
         defaultMode: MODES.DARKREADER,
-        // 个人网站列表只存在本机 GM 存储和加密 Gist 中，绝不写入公开脚本源码。
+        // Personal site rules live in local GM storage and the private ROG sync document.
         rules: Object.freeze({}),
     });
 
@@ -160,12 +160,10 @@ const __viaDarkReaderChrome={runtime:{}};/**
     }
 
     function readSyncState() {
-        const raw = GM_getValue(SYNC_STATE_KEY, null);
-        if (!raw || typeof raw !== 'object') return null;
+        const raw = GM_getValue(SYNC_STATE_KEY, null)
+            || GM_getValue(LEGACY_SYNC_STATE_KEY, null)
+            || {};
         return {
-            gistId: String(raw.gistId || ''),
-            githubToken: String(raw.githubToken || ''),
-            encryptionKey: String(raw.encryptionKey || ''),
             deviceId: String(raw.deviceId || ''),
             document: raw.document && syncCore ? syncCore.normalizeDocument(raw.document) : null,
             lastSyncAt: Number(raw.lastSyncAt || 0),
@@ -174,12 +172,19 @@ const __viaDarkReaderChrome={runtime:{}};/**
     }
 
     function saveSyncState(state) {
-        GM_setValue(SYNC_STATE_KEY, state);
-        return state;
+        const normalized = {
+            deviceId: String(state?.deviceId || ''),
+            document: state?.document && syncCore ? syncCore.normalizeDocument(state.document) : null,
+            lastSyncAt: Number(state?.lastSyncAt || 0),
+            dirty: state?.dirty === true,
+        };
+        GM_setValue(SYNC_STATE_KEY, normalized);
+        try { GM_deleteValue(LEGACY_SYNC_STATE_KEY); } catch (_) {}
+        return normalized;
     }
 
-    function syncConfigured(state = readSyncState()) {
-        return !!(syncCore && state?.githubToken && state?.encryptionKey);
+    function syncConfigured() {
+        return !!(syncCore && typeof GM_xmlhttpRequest === 'function');
     }
 
     function ensureDeviceId(state) {
@@ -202,8 +207,8 @@ const __viaDarkReaderChrome={runtime:{}};/**
     }
 
     function recordLocalSyncChange(previousConfig, nextConfig) {
+        if (!syncCore) return;
         const state = readSyncState();
-        if (!syncConfigured(state)) return;
         const deviceId = ensureDeviceId(state);
         const baseDocument = state.document || syncCore.createDocument(previousConfig, 0, deviceId);
         state.document = syncCore.recordConfigChange(
@@ -228,22 +233,20 @@ const __viaDarkReaderChrome={runtime:{}};/**
         }, delay);
     }
 
-    function githubRequest(method, path, token, body) {
+    function localSyncRequest(method, requestPath, body) {
         if (typeof GM_xmlhttpRequest !== 'function') {
-            return Promise.reject(new Error('当前用户脚本管理器不支持 GM_xmlhttpRequest'));
+            return Promise.reject(new Error('GM_xmlhttpRequest is unavailable'));
         }
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method,
-                url: `https://api.github.com${path}`,
+                url: `${LOCAL_SYNC_ENDPOINT}${requestPath}`,
                 headers: {
-                    Accept: 'application/vnd.github+json',
-                    Authorization: `Bearer ${token}`,
-                    'X-GitHub-Api-Version': '2022-11-28',
+                    Accept: 'application/json',
                     ...(body ? { 'Content-Type': 'application/json' } : {}),
                 },
                 data: body ? JSON.stringify(body) : undefined,
-                timeout: 30000,
+                timeout: 15000,
                 onload(response) {
                     let parsed = null;
                     try { parsed = response.responseText ? JSON.parse(response.responseText) : null; } catch (_) {}
@@ -251,84 +254,46 @@ const __viaDarkReaderChrome={runtime:{}};/**
                         resolve(parsed);
                         return;
                     }
-                    const error = new Error(`GitHub API ${response.status}: ${parsed?.message || response.statusText || 'request failed'}`);
+                    const error = new Error(parsed?.message || `Local sync HTTP ${response.status}`);
                     error.status = response.status;
                     reject(error);
                 },
-                ontimeout() { reject(new Error('GitHub API 请求超时')); },
-                onerror() { reject(new Error('无法连接 GitHub API')); },
+                ontimeout() { reject(new Error('Local sync request timed out')); },
+                onerror() { reject(new Error('Cannot reach local sync service')); },
             });
         });
     }
 
-    async function findSyncGist(state) {
-        if (state.gistId) {
-            try {
-                return await githubRequest('GET', `/gists/${encodeURIComponent(state.gistId)}`, state.githubToken);
-            } catch (error) {
-                if (error.status !== 404) throw error;
-                state.gistId = '';
-            }
-        }
-        const gists = await githubRequest('GET', '/gists?per_page=100', state.githubToken);
-        const matched = (Array.isArray(gists) ? gists : [])
-            .filter((gist) => gist.description === GIST_DESCRIPTION)
-            .sort((left, right) => Date.parse(right.updated_at || 0) - Date.parse(left.updated_at || 0))[0];
-        if (matched?.id) state.gistId = matched.id;
-        return matched || null;
+    async function checkSyncHealth() {
+        const health = await localSyncRequest('GET', '/health');
+        if (!health?.ok) throw new Error('Local sync service is not healthy');
+        return health;
     }
 
-    async function uploadSyncDocument(state, gist, document) {
-        const encrypted = await syncCore.encryptDocument(document, state.encryptionKey);
-        const content = JSON.stringify({
-            key: GIST_FILENAME,
-            value: encrypted,
-            updateAt: syncCore.documentUpdatedAt(document),
-        }, null, 2);
-        if (!gist) {
-            const created = await githubRequest('POST', '/gists', state.githubToken, {
-                description: GIST_DESCRIPTION,
-                public: false,
-                files: { [GIST_FILENAME]: { content } },
-            });
-            state.gistId = created.id;
-            return created;
-        }
-        await githubRequest('PATCH', `/gists/${encodeURIComponent(gist.id)}`, state.githubToken, {
-            files: { [GIST_FILENAME]: { content } },
+    async function readRemoteDocument() {
+        const payload = await localSyncRequest('GET', '/v1/dark-model-config');
+        return payload?.document ? syncCore.normalizeDocument(payload.document) : null;
+    }
+
+    async function uploadRemoteDocument(document) {
+        return localSyncRequest('PUT', '/v1/dark-model-config', {
+            document: syncCore.normalizeDocument(document),
         });
-        state.gistId = gist.id;
-        return gist;
-    }
-
-    async function readRemoteDocument(gist, encryptionKey) {
-        const file = gist?.files?.[GIST_FILENAME];
-        if (!file) return null;
-        if (file.truncated) throw new Error('远端 Dark Model 配置异常大，已拒绝覆盖本地数据');
-        let parsed;
-        try {
-            parsed = JSON.parse(file.content);
-        } catch {
-            throw new Error('远端 Dark Model 同步文件损坏');
-        }
-        const encryptedValue = parsed?.value || file.content;
-        return syncCore.decryptDocument(encryptedValue, encryptionKey);
     }
 
     async function performSync(force = false) {
-        const state = readSyncState();
-        if (!syncConfigured(state)) {
-            if (force) throw new Error('请先填写 GitHub Gist 令牌和加密口令');
+        if (!syncConfigured()) {
+            if (force) throw new Error('Local sync is unavailable in this userscript manager');
             return { skipped: true };
         }
+        const state = readSyncState();
         if (!force && !state.dirty && Date.now() - state.lastSyncAt < SYNC_INTERVAL_MS) {
             return { skipped: true };
         }
 
         const now = Date.now();
         const deviceId = ensureDeviceId(state);
-        const gist = await findSyncGist(state);
-        const remoteDocument = await readRemoteDocument(gist, state.encryptionKey);
+        const remoteDocument = await readRemoteDocument();
         const localConfig = readConfig();
         let localDocument = state.document || syncCore.createDocument(
             localConfig,
@@ -353,9 +318,13 @@ const __viaDarkReaderChrome={runtime:{}};/**
             ? syncCore.mergeDocuments(localDocument, remoteDocument)
             : syncCore.normalizeDocument(localDocument);
         const remoteChanged = !remoteDocument || stableStringify(remoteDocument) !== stableStringify(merged);
-        if (remoteChanged) await uploadSyncDocument(state, gist, merged);
+        let finalDocument = merged;
+        if (remoteChanged) {
+            const payload = await uploadRemoteDocument(merged);
+            if (payload?.document) finalDocument = syncCore.normalizeDocument(payload.document);
+        }
 
-        const mergedConfig = normalizeConfig(syncCore.materializeConfig(merged));
+        const mergedConfig = normalizeConfig(syncCore.materializeConfig(finalDocument));
         if (stableStringify(mergedConfig) !== stableStringify(localConfig)) {
             applyingRemoteConfig = true;
             try {
@@ -367,11 +336,11 @@ const __viaDarkReaderChrome={runtime:{}};/**
             }
         }
 
-        state.document = merged;
+        state.document = finalDocument;
         state.lastSyncAt = Date.now();
         state.dirty = false;
         saveSyncState(state);
-        return { skipped: false, uploaded: remoteChanged, gistId: state.gistId };
+        return { skipped: false, uploaded: remoteChanged };
     }
 
     function syncNow(force = true) {
@@ -381,44 +350,24 @@ const __viaDarkReaderChrome={runtime:{}};/**
         return syncInFlight;
     }
 
-    function configureSync({ githubToken, encryptionKey, gistId }) {
-        if (!syncCore) throw new Error('同步组件没有加载，请检查脚本更新是否完整');
-        const previous = readSyncState() || {};
-        const nextGithubToken = String(githubToken || previous.githubToken || '').trim();
-        const nextEncryptionKey = String(encryptionKey || previous.encryptionKey || '');
-        const nextGistId = syncCore.gistIdFromValue(gistId) || previous.gistId || '';
-        if (!nextGithubToken) throw new Error('GitHub Gist 令牌不能为空');
-        if (nextEncryptionKey.length < 6) throw new Error('同步加密口令至少需要 6 个字符');
-        const credentialsChanged = nextGithubToken !== previous.githubToken
-            || nextEncryptionKey !== previous.encryptionKey
-            || nextGistId !== previous.gistId;
+    function resetSyncCache() {
+        clearTimeout(syncTimer);
+        const previous = readSyncState();
         const state = {
-            ...previous,
-            gistId: nextGistId,
-            githubToken: nextGithubToken,
-            encryptionKey: nextEncryptionKey,
             deviceId: previous.deviceId || '',
-            document: credentialsChanged ? null : previous.document || null,
-            lastSyncAt: credentialsChanged ? 0 : Number(previous.lastSyncAt || 0),
-            dirty: true,
+            document: null,
+            lastSyncAt: 0,
+            dirty: false,
         };
         ensureDeviceId(state);
-        saveSyncState(state);
-        scheduleSync(0);
-        return state;
-    }
-
-    function disconnectSync() {
-        clearTimeout(syncTimer);
-        GM_deleteValue(SYNC_STATE_KEY);
+        return saveSyncState(state);
     }
 
     function getSyncSummary() {
+        if (!syncConfigured()) return '当前环境不支持本地同步';
         const state = readSyncState();
-        if (!syncConfigured(state)) return '未连接 GitHub Gist';
-        const gist = state.gistId ? `${state.gistId.slice(0, 8)}…` : '等待首次创建/发现';
         const lastSync = state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : '尚未同步';
-        return `已连接 · Gist ${gist} · 上次同步 ${lastSync}${state.dirty ? ' · 有待上传更改' : ''}`;
+        return `ROG 本地代理 · 上次同步 ${lastSync}${state.dirty ? " · 有待上传变更" : ""}`;
     }
 
     function splitPattern(pattern) {
@@ -708,19 +657,12 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
     </div>
 
     <div class="card">
-      <div class="label">设备同步（每天自动拉取；本地改动会尽快上传）</div>
-      <div class="small">填写与 Translator 相同的 GitHub Gist 专用令牌和加密口令。Dark Model 只同步自己的按网站模式；数据会端到端加密，凭据只保存在本机。</div>
+      <div class="label">设备同步（每 1 小时自动检查，本地修改会尽快上传）</div>
+      <div class="small">仅同步 Dark Model 的默认模式和网站策略。本机通过 127.0.0.1:17892 连接 ROG；OMEN/Mac 由 SSH over Tailscale 提供本地转发。数据在 ROG 端使用 AES-256-GCM 加密落盘。</div>
       <div class="row" style="margin-top:10px">
-        <input type="password" id="syncGithubToken" autocomplete="new-password" placeholder="GitHub Gist 专用令牌（仅 gist 权限）">
-        <input type="password" id="syncEncryptionKey" autocomplete="new-password" placeholder="同步加密口令（至少 6 个字符）">
-      </div>
-      <div class="row" style="margin-top:9px">
-        <input id="syncGistId" autocomplete="off" placeholder="Gist ID 或网址（可选，留空自动查找/创建）">
-        <button class="primary" id="saveSync">连接并同步</button>
-      </div>
-      <div class="row" style="margin-top:9px">
+        <button class="primary" id="connectSync">连接并同步</button>
         <button id="syncNow">立即同步</button>
-        <button class="danger" id="disconnectSync">断开并删除本机同步凭据</button>
+        <button id="resetSyncCache">重置本机同步缓存</button>
       </div>
       <div class="status" id="syncStatus"></div>
     </div>
@@ -877,22 +819,16 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
             status('已恢复初始迁移规则。刷新页面后应用。');
         });
 
-        $('#saveSync').addEventListener('click', async () => {
+        $('#connectSync').addEventListener('click', async () => {
             try {
-                configureSync({
-                    githubToken: $('#syncGithubToken').value,
-                    encryptionKey: $('#syncEncryptionKey').value,
-                    gistId: $('#syncGistId').value,
-                });
-                $('#syncGithubToken').value = '';
-                $('#syncEncryptionKey').value = '';
-                syncStatus('正在连接并合并远端规则…');
+                syncStatus('正在连接 ROG 同步服务…');
+                await checkSyncHealth();
                 await syncNow(true);
                 renderRules();
                 refreshCurrentInfo();
                 syncStatus(getSyncSummary());
             } catch (error) {
-                syncStatus(`同步配置失败：${error.message}`);
+                syncStatus(`连接/同步失败：${error.message}`);
             }
         });
 
@@ -908,12 +844,9 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
             }
         });
 
-        $('#disconnectSync').addEventListener('click', () => {
-            disconnectSync();
-            $('#syncGithubToken').value = '';
-            $('#syncEncryptionKey').value = '';
-            $('#syncGistId').value = '';
-            syncStatus('已删除本机 Gist 令牌、加密口令和同步元数据；网站规则仍保留在本机。');
+        $('#resetSyncCache').addEventListener('click', () => {
+            resetSyncCache();
+            syncStatus('已重置本机同步缓存；网站策略未删除。');
         });
 
         refreshCurrentInfo();
@@ -947,6 +880,7 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
             config: () => readConfig(),
             syncNow,
             syncSummary: getSyncSummary,
+            resetSyncCache,
             resetCurrentRule,
             disableAllNow: () => { removeFilter(); disableDarkReader(); },
         }),
