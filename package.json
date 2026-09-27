@@ -1,0 +1,10 @@
+{
+  "name": "tampermonkey-scripts",
+  "private": true,
+  "scripts": {
+    "test:copy": "node --test tests/chatgpt-copy-fix.test.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}

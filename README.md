@@ -22,10 +22,13 @@ Dark Model synchronizes only its default mode and per-site `darkreader/filter/of
 在 PowerShell 中运行：
 
 ```powershell
+npm ci
 .\tools\validate.ps1
 ```
 
 验证包含 JavaScript 语法、同步合并/加密测试、更新地址、LinkSwift 排除以及常见秘密和私网地址扫描。
+
+ChatGPT Copy Fix 的 DOM/复制回归测试运行 `npm run test:copy`。浏览器验收页运行 `node tools/copy-fix-browser-fixture.cjs`，然后访问 `http://127.0.0.1:18367`；选区测试需按实际 Ctrl+C/Cmd+C。参见 [复制设计](docs/design/chatgpt-copy-fix.md) 与 [3.4.11 验证记录](docs/testing/chatgpt-copy-fix.md)。
 
 ## 来源
 

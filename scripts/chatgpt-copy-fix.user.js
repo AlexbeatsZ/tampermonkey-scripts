@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Copy Fix
 // @namespace    local.cgpt.mdlatex.copy
-// @version      3.4.8-local
+// @version      3.4.11-local
 // @description  Copy ChatGPT replies/tables as Markdown with compact $$ LaTeX and user-defined Obsidian spacing.
 // @author       local
 // @homepageURL  https://github.com/AlexbeatsZ/tampermonkey-scripts
@@ -17,8 +17,8 @@
 (function () {
     'use strict';
 
-    if (window.__CGPTMdLatexCopyV347) return;
-    window.__CGPTMdLatexCopyV347 = true;
+    if (window.__CGPTMdLatexCopyV3411) return;
+    window.__CGPTMdLatexCopyV3411 = true;
 
     const INLINE_MATH_LEFT = '$';
     const INLINE_MATH_RIGHT = '$';
@@ -46,8 +46,32 @@
     const STRUCTURE_LINE_AROUND_KINDS = new Set(['math', 'list', 'indent']);
 
     const COPY_BUTTON_SELECTOR = '[data-testid="copy-turn-action-button"]';
-    const MESSAGE_SELECTOR = '[data-message-author-role]';
-    const TURN_SELECTOR = '[data-testid^="conversation-turn-"], [data-turn]';
+    // ChatGPT's September 2026 renderer no longer has message roles, .markdown,
+    // or copy-button test IDs. Use its semantic Markdown and turn attributes.
+    const ASSISTANT_MARKDOWN_SELECTOR = '[data-markdown-text-style="assistant-message"]';
+    const MESSAGE_SELECTOR = '[data-message-author-role], [data-markdown-text-style="assistant-message"], [data-markdown-text-style="user-message"]';
+    const TURN_SELECTOR = '[data-testid^="conversation-turn-"], [data-turn], [data-turn-key], [data-content-search-turn-key]';
+    const MATH_SELECTOR = [
+        '.katex-display',
+        '.katex',
+        'mjx-container',
+        'math',
+        '[role="math"]',
+        '[data-latex]',
+        '[data-tex]',
+        '[data-math]',
+        '[data-math-source]',
+        '[data-latex-source]',
+        '[data-testid="math-inline"]',
+        '[data-testid="math-block"]',
+        '[data-testid="math-display"]',
+        '.math-inline',
+        '.math-block',
+        '.math-display',
+        '[class*="math-inline"]',
+        '[class*="math-block"]',
+        '[class*="math-display"]',
+    ].join(', ');
 
     const RAW_DISPLAY_RE = /\\\[([\s\S]*?)\\\]/g;
     const RAW_INLINE_RE = /\\\(([\s\S]*?)\\\)/g;
@@ -123,28 +147,108 @@
             .replace(RAW_INLINE_RE, (_, body) => wrapInlineMath(body));
     }
 
-    function getTexAnnotation(root) {
+    function getAttributeFromSelfOrDescendant(root, names) {
+        if (!root || !(root instanceof Element)) return '';
+
+        const candidates = [root];
+        for (const name of names) {
+            const descendant = root.querySelector?.(`[${name}]`);
+            if (descendant) candidates.push(descendant);
+        }
+
+        for (const candidate of candidates) {
+            for (const name of names) {
+                const value = candidate.getAttribute?.(name)?.trim();
+                if (value) return value;
+            }
+        }
+
+        return '';
+    }
+
+    function looksLikeTex(text) {
+        const value = String(text || '').trim();
+        if (!value) return false;
+
+        // 新版 ChatGPT 会把原始 TeX 放进公式容器的 aria-label，而不再保证
+        // 渲染树内存在 <annotation>。排除纯 UI 标签，避免复制出“math/公式”。
+        if (/^(math|formula|equation|latex|公式|数学公式)$/i.test(value)) return false;
+
+        return true;
+    }
+
+    function unwrapTexDelimiters(text) {
+        const value = String(text || '').trim();
+        const rawDisplay = value.match(/^\\\[([\s\S]*)\\\]$/);
+        if (rawDisplay) return rawDisplay[1].trim();
+
+        const rawInline = value.match(/^\\\(([\s\S]*)\\\)$/);
+        if (rawInline) return rawInline[1].trim();
+
+        const dollarDisplay = value.match(/^\$\$([\s\S]*)\$\$$/);
+        if (dollarDisplay) return dollarDisplay[1].trim();
+
+        const dollarInline = value.match(/^\$([^$][\s\S]*?)\$$/);
+        if (dollarInline) return dollarInline[1].trim();
+
+        return value;
+    }
+
+    function getTexSource(root) {
         if (!root || !root.querySelector) return '';
 
         const ann = root.querySelector(
             'annotation[encoding="application/x-tex"], annotation[encoding="LaTeX"], annotation'
         );
+        const annotationTex = ann?.textContent?.trim() || '';
+        if (annotationTex) return annotationTex;
 
-        return ann?.textContent?.trim() || '';
+        // 2026-09 ChatGPT 公式 DOM：原始源码可能只保存在可访问性/数据属性中。
+        const attributeTex = getAttributeFromSelfOrDescendant(root, [
+            'data-math-source',
+            'data-latex-source',
+            'data-latex',
+            'data-tex',
+            'data-math',
+            'alttext',
+            'aria-label',
+        ]);
+
+        if (looksLikeTex(attributeTex)) return unwrapTexDelimiters(attributeTex);
+
+        // 另一种新版结构把原始 TeX 放在仅供屏幕阅读器读取的节点中，
+        // 可见层则只有渲染后的 HTML/SVG。旧脚本会把两层都当作噪声删掉。
+        const accessibleSource = root.querySelector(
+            '[data-math-source], [data-latex-source], .sr-only, [class*="sr-only"]'
+        )?.textContent?.trim() || '';
+
+        return looksLikeTex(accessibleSource) ? unwrapTexDelimiters(accessibleSource) : '';
     }
 
     function isDisplayMathElement(el) {
         if (!el || !(el instanceof Element)) return false;
         return Boolean(
+            el.getAttribute('data-math-display') === 'true' ||
             el.classList.contains('katex-display') ||
-            el.closest('.katex-display') ||
+            el.style.display === 'block' ||
+            el.querySelector?.('.katex-display, [data-math-display="true"], math[display="block"], [data-testid="math-block"], [data-testid="math-display"]') ||
+            el.closest([
+                '.katex-display',
+                '[data-math-display="true"]',
+                '[data-testid="math-block"]',
+                '[data-testid="math-display"]',
+                '.math-block',
+                '.math-display',
+                '[class*="math-block"]',
+                '[class*="math-display"]',
+            ].join(', ')) ||
             el.getAttribute('display') === 'block' ||
             el.getAttribute('display') === 'true'
         );
     }
 
     function mathToMarkdown(el) {
-        const tex = getTexAnnotation(el);
+        const tex = getTexSource(el);
         if (!tex) return '';
 
         return isDisplayMathElement(el)
@@ -156,9 +260,14 @@
         const el = asElement(node);
         if (!el) return null;
 
-        return el.closest(
-            '.katex-display, .katex, mjx-container, math'
-        );
+        let math = el.closest(MATH_SELECTOR);
+        // A selection can start in a KaTeX glyph. Expand through the outer
+        // source/display wrapper, which survives even without MathML annotation.
+        for (let parent = math?.parentElement; parent; parent = parent.parentElement) {
+            if (parent.matches(MESSAGE_SELECTOR)) break;
+            if (parent.matches(MATH_SELECTOR)) math = parent;
+        }
+        return math;
     }
 
     function isHiddenOrNoise(el) {
@@ -235,12 +344,11 @@
     }
 
     function cleanBlock(text) {
-        return String(text)
+        return protectCodeBlocksOnly(String(text), value => value
             .replace(/\u00A0/g, ' ')
             .replace(/[ \t]+\n/g, '\n')
-            .replace(/\n[ \t]+/g, '\n')
             .replace(/\n{4,}/g, '\n\n\n')
-            .trim();
+            .trim());
     }
 
     function makeProtectedToken(index, type = 'BLOCK') {
@@ -381,11 +489,10 @@
 
     function collapseExtraBlankLinesFinal(text) {
         const out = protectMarkdownBlocks(
-            String(text)
+            String(text),
+            value => shrinkPlainTextNewlineRuns(value
                 .replace(/[ \t]+\n/g, '\n')
-                .replace(/\n[ \t]+/g, '\n')
-                .replace(/[ \t]+$/gm, ''),
-            shrinkPlainTextNewlineRuns
+                .replace(/[ \t]+$/gm, ''))
         );
 
         return compactDisplayMathBlocks(out).trim();
@@ -486,7 +593,7 @@
         if (isHiddenOrNoise(el)) return '';
 
         // 整个公式节点直接转 TeX，不递归进入 MathML/HTML 双层结构。
-        if (el.matches('.katex-display, .katex, mjx-container, math')) {
+        if (el.matches(MATH_SELECTOR)) {
             const md = mathToMarkdown(el);
             if (md) return md;
         }
@@ -581,7 +688,9 @@
 
     function markdownFromRoot(root) {
         const raw = serializeNode(root, {});
-        return collapseExtraBlankLinesFinal(cleanBlock(decodeHTMLEntities(raw)));
+        // DOM textContent has already decoded entities. Parsing Markdown as HTML
+        // erases literal tags/comparisons in code and can decode entities twice.
+        return collapseExtraBlankLinesFinal(cleanBlock(raw));
     }
 
     function htmlFromPlainText(text) {
@@ -656,6 +765,10 @@
             await navigator.clipboard.writeText(text);
             return true;
         } catch (_) {
+            const focused = document.activeElement;
+            const selection = window.getSelection();
+            const ranges = selection ? Array.from({ length: selection.rangeCount },
+                (_, i) => selection.getRangeAt(i).cloneRange()) : [];
             const textarea = document.createElement('textarea');
             textarea.value = text;
             textarea.setAttribute('readonly', '');
@@ -675,6 +788,11 @@
             }
 
             textarea.remove();
+            if (focused?.isConnected) focused.focus({ preventScroll: true });
+            if (selection) {
+                selection.removeAllRanges();
+                for (const range of ranges) selection.addRange(range);
+            }
             return ok;
         }
     }
@@ -685,6 +803,9 @@
 
     function getMarkdownRootsFromTurn(turn) {
         if (!turn) return [];
+
+        const currentRoots = Array.from(turn.querySelectorAll(ASSISTANT_MARKDOWN_SELECTOR));
+        if (currentRoots.length) return currentRoots.filter(root => !root.closest('pre'));
 
         /**
          * v3 + one v3.4 fix:
@@ -785,7 +906,7 @@
         if (!table) return '';
 
         const text = serializeTable(table, {});
-        return collapseExtraBlankLinesFinal(cleanBlock(decodeHTMLEntities(text)));
+        return collapseExtraBlankLinesFinal(cleanBlock(text));
     }
 
     function copyFromTableButtonEvent(event) {
@@ -800,21 +921,28 @@
         event.stopImmediatePropagation();
 
         void writeTextToClipboard(text);
-        queueMicrotask(() => { void writeTextToClipboard(text); });
-        setTimeout(() => { void writeTextToClipboard(text); }, 0);
-        setTimeout(() => { void writeTextToClipboard(text); }, 60);
-        setTimeout(() => { void writeTextToClipboard(text); }, 180);
     }
 
     function isTurnCopyButtonEvent(event) {
         const target = asElement(event.target);
         if (!target) return null;
 
-        const button = target.closest(COPY_BUTTON_SELECTOR);
+        const button = target.closest('button');
         if (!button) return null;
 
         // 避免误伤代码块自己的复制按钮。
         if (button.closest('pre')) return null;
+
+        if (!button.matches(COPY_BUTTON_SELECTOR)) {
+            // A generic Copy label is only a reply action in the turn toolbar.
+            // This keeps code/table copies and unrelated page controls native.
+            const label = (button.getAttribute('aria-label') || button.getAttribute('title') || '').trim();
+            if (!/^(copy(?: response| reply)?|复制(?:回复|回答)?)$/i.test(label)) return null;
+            if (!button.closest('.turn-action-controls')) return null;
+            const turn = findTurnRootFromCopyButton(button);
+            if (!turn?.querySelector(ASSISTANT_MARKDOWN_SELECTOR) &&
+                !turn?.querySelector('[data-message-author-role="assistant"]')) return null;
+        }
 
         return button;
     }
@@ -826,17 +954,13 @@
         const text = getNativeCopyTextFromButton(button);
         if (!text) return;
 
-        // 关键：即使 ChatGPT 原生 click 处理先运行或后运行，也用多次写入覆盖它。
-        // 这比单纯 preventDefault 更稳，因为 React 事件注册顺序可能早于 userscript。
+        // Capture stops the event before React's turn handler. Write only once:
+        // delayed retries can overwrite a later selection/table copy.
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
 
         void writeTextToClipboard(text);
-        queueMicrotask(() => { void writeTextToClipboard(text); });
-        setTimeout(() => { void writeTextToClipboard(text); }, 0);
-        setTimeout(() => { void writeTextToClipboard(text); }, 60);
-        setTimeout(() => { void writeTextToClipboard(text); }, 180);
     }
 
     function installListeners(root) {
@@ -845,14 +969,10 @@
 
         // ChatGPT 表格自己的“复制表格”按钮。
         // 它不是 turn copy button，需要单独接管，否则公式会走原生表格复制路径。
-        root.addEventListener('pointerdown', copyFromTableButtonEvent, true);
-        root.addEventListener('mousedown', copyFromTableButtonEvent, true);
         root.addEventListener('click', copyFromTableButtonEvent, true);
 
         // ChatGPT 原生“复制回复”按钮。
-        // pointerdown 提前拿到用户激活；click 再覆盖原生复制结果。
-        root.addEventListener('pointerdown', copyFromNativeButtonEvent, true);
-        root.addEventListener('mousedown', copyFromNativeButtonEvent, true);
+        // click supports pointer and keyboard activation without disrupting focus.
         root.addEventListener('click', copyFromNativeButtonEvent, true);
     }
 

@@ -3,3 +3,4 @@
 *.token
 *.secret
 sync-credentials*.json
+node_modules/

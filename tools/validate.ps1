@@ -29,6 +29,8 @@ foreach ($script in $scripts) {
 if ($LASTEXITCODE -ne 0) { throw 'Sync core syntax check failed.' }
 & node --test (Join-Path $projectRoot 'tests\dark-model-sync-core.test.cjs')
 if ($LASTEXITCODE -ne 0) { throw 'Sync core tests failed.' }
+& node --test (Join-Path $projectRoot 'tests\chatgpt-copy-fix.test.cjs')
+if ($LASTEXITCODE -ne 0) { throw 'ChatGPT copy tests failed.' }
 
 $publicFiles = @($scripts.FullName) + @((Join-Path $projectRoot 'lib\dark-model-sync-core.js'))
 $secretPatterns = [ordered]@{

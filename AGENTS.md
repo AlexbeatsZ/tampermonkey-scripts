@@ -4,6 +4,9 @@
 
 # Current State
 
+- 2026-09-27: ChatGPT Copy Fix v3.4.11-local adapts to the new semantic Markdown/turn attributes and accessible reply-copy labels. All 16 copy regressions pass; Chrome clipboard tests pass on synthetic and current-page DOM fixtures (35 formulas, 20 display blocks). Tampermonkey installation remains user-owned because browser tools block extension URLs.
+- Copy formatting/renderer design: `docs/design/chatgpt-copy-fix.md`; verification: `docs/testing/chatgpt-copy-fix.md`. Read the design before changing copy serialization or event interception.
+
 - 2026-09-11: Dark Model v2.1.2-dr4.9.128 migrates runtime sync from GitHub Gist to the private ROG loopback service at 127.0.0.1:17892. OMEN/Mac reuse SSH-over-Tailscale forwards; automatic pull interval is 1 hour; legacy Gist credentials are scrubbed on state write.
 
 - 已从下载目录导入 AI Conversation Navigator、ChatGPT Copy Fix、Dark Model；LinkSwift 未导入。来源 SHA-256 记录在 `imports.json`。
@@ -17,6 +20,8 @@
 
 # Active Work
 
+- [x] Repair ChatGPT Copy Fix for the September 2026 renderer; preserve code/list indentation and avoid delayed clipboard overwrites.
+
 - [x] Migrate Dark Model sync from GitHub Gist to the private ROG backend with a separate /v1/dark-model-config document.
 - [x] Deploy the updated ROG server, publish Dark Model, and verify OMEN/Mac/ROG runtime sync. Verified 2026-09-11: Dark Model central state has 34 effective rules, KISS remains at 49 site exclusions, and ROG storage is AES-256-GCM ciphertext.
 
@@ -29,6 +34,9 @@
 - [ ] 用户在各设备填写相同的最小 `gist` 权限令牌与加密口令，并进行首次实机同步。
 
 # Build / Run / Test
+
+- Install isolated test dependencies with `npm ci`; copy regressions: `npm run test:copy`.
+- Chrome acceptance fixture: `node tools/copy-fix-browser-fixture.cjs` (loopback port 18367). Optional `--live <temporary DOM capture>`; never commit conversation captures.
 
 - 完整本地验证：`.\tools\validate.ps1`。
 - 单测：`node --test .\tests\dark-model-sync-core.test.cjs`。
