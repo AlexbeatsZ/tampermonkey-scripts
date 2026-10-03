@@ -1,9 +1,13 @@
 // ==UserScript==
 // @name         AI Conversation Navigator
 // @namespace    https://greasyfork.org
-// @version      102.0.1
-// @description  Floating dark overlay navigator. Hidden by default; click the side toggle to open. Includes stricter AI Studio user-turn filtering. Applied for ChatGPT, Gemini, Aistudio, NotebookLM, Google search, Grok, Claude, Mistral, Meta, Deepseek, Kimi, Z.ai, Chatglm, Ernie, Xiaomimimo, Perplexity, Poe, Deepai, Huggingface, Manus, Longcat, Chatboxai, arena, Quillbot, Canva, Genspark, Character, Spacefrontiers, Scienceos, Evidencehunt, Playground (allen), Paperfigureqa (allen), Liner, Scira, Scispace, Exa.ai, Consensus, Openevidence, Math-gpt.
+// @version      102.0.2-local
+// @author       AlexbeatsZ (independent maintenance)
+// @description  Independently maintained by AlexbeatsZ. Floating dark overlay navigator, hidden by default, with bookmarks, stricter AI Studio user-turn filtering and Arena scroll controls. Supports ChatGPT, Gemini, AI Studio, NotebookLM and other AI chat sites.
+// @description:zh-CN AlexbeatsZ 独立维护的 AI 对话导航器：默认收起的深色悬浮面板、书签、AI Studio 用户轮次过滤和 Arena 滚动控制，支持多个 AI 对话网站。
 // @homepageURL  https://github.com/AlexbeatsZ/tampermonkey-scripts
+// @source       https://github.com/AlexbeatsZ/tampermonkey-scripts/blob/main/scripts/ai-conversation-navigator.user.js
+// @supportURL   https://github.com/AlexbeatsZ/tampermonkey-scripts/issues
 // @downloadURL  https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/ai-conversation-navigator.user.js
 // @updateURL    https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/ai-conversation-navigator.user.js
 // @match        https://chatgpt.com/*
@@ -53,6 +57,8 @@
 // @license      MIT
 // ==/UserScript==
 
+// Independently maintained in AlexbeatsZ/tampermonkey-scripts.
+// The legacy name and namespace are retained for installed-script and bookmark continuity.
 
 (function () {
     'use strict';

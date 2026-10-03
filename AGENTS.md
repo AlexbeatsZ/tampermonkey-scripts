@@ -4,6 +4,8 @@
 
 # Current State
 
+- 2026-10-04: AI Conversation Navigator `102.0.2-local` identifies AlexbeatsZ as the independent maintainer; homepage/source/support/update/download metadata targets this repository. Runtime matches the user's supplied `102.0.1` script. Release metadata checks and full validation (20 existing tests) pass. Keep the legacy name/namespace and GM keys for installation/bookmark continuity. Design: `docs/design/ai-conversation-navigator.md`; read it before changing identity, release metadata or bookmark storage.
+
 - 2026-09-27: ChatGPT Copy Fix v3.4.11-local adapts to the new semantic Markdown/turn attributes and accessible reply-copy labels. All 16 copy regressions pass; Chrome clipboard tests pass on synthetic and current-page DOM fixtures (35 formulas, 20 display blocks). Tampermonkey installation remains user-owned because browser tools block extension URLs.
 - Copy formatting/renderer design: `docs/design/chatgpt-copy-fix.md`; verification: `docs/testing/chatgpt-copy-fix.md`. Read the design before changing copy serialization or event interception.
 
@@ -19,6 +21,8 @@
 - 同步设计：`docs/design/sync-architecture.md`。修改更新地址、凭据处理、合并或同步 UI 前必须阅读。
 
 # Active Work
+
+- [x] Publish AI Conversation Navigator as an explicitly independent maintenance version with repository metadata and installation compatibility documentation.
 
 - [x] Repair ChatGPT Copy Fix for the September 2026 renderer; preserve code/list indentation and avoid delayed clipboard overwrites.
 
