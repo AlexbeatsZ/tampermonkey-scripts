@@ -5,8 +5,8 @@ $scriptsRoot = Join-Path $projectRoot 'scripts'
 $expectedRepository = 'https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/'
 
 $scripts = Get-ChildItem -LiteralPath $scriptsRoot -File -Filter '*.user.js'
-if ($scripts.Count -ne 3) {
-    throw "Expected exactly 3 local userscripts, found $($scripts.Count)."
+if ($scripts.Count -ne 4) {
+    throw "Expected exactly 4 local userscripts, found $($scripts.Count)."
 }
 
 foreach ($script in $scripts) {
@@ -17,11 +17,12 @@ foreach ($script in $scripts) {
     if ($text -match '(?im)^//\s+@name\s+LinkSwift\s*$') {
         throw "LinkSwift must not be published: $($script.Name)"
     }
-    if ($text -notmatch '(?im)^//\s+@updateURL\s+https://') {
-        throw "Missing update URL: $($script.Name)"
-    }
-    if ($text -notmatch [regex]::Escape($expectedRepository)) {
-        throw "Unexpected update repository: $($script.Name)"
+    $expectedUrl = $expectedRepository + 'scripts/' + $script.Name
+    foreach ($field in @('updateURL', 'downloadURL')) {
+        $pattern = '(?m)^//[ \t]+@' + $field + '[ \t]+' + [regex]::Escape($expectedUrl) + '\r?$'
+        if ($text -notmatch $pattern) {
+            throw "Missing or unexpected ${field}: $($script.Name)"
+        }
     }
 }
 

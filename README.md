@@ -7,9 +7,18 @@
 - [AI Conversation Navigator](https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/ai-conversation-navigator.user.js)
 - [ChatGPT Copy Fix](https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/chatgpt-copy-fix.user.js)
 - [Dark Model](https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/dark-model.user.js)
+- [超星下载助手](https://raw.githubusercontent.com/AlexbeatsZ/tampermonkey-scripts/main/scripts/chaoxing-download-helper.user.js)
 - [Translator](https://alexbeatsz.github.io/kiss-translator/kiss-translator.user.js)（继续由现有 [kiss-translator](https://github.com/AlexbeatsZ/kiss-translator) 仓库发布，避免维护两份源码）
 
-第一次在现有设备上点击以上链接并覆盖安装后，脚本会获得新的更新地址。随后在篡改猴设置中把“检查脚本更新间隔”设为每天；仓库内三个脚本和 Translator 都会使用各自的 `@updateURL` 更新。
+第一次在现有设备上点击以上链接并覆盖安装后，脚本会获得新的更新地址。随后在篡改猴设置中把“检查脚本更新间隔”设为每天，仓库内四个脚本和 Translator 都会使用各自的 `@updateURL` 检查更新，并从 `@downloadURL` 下载新版本。
+
+## 超星下载助手
+
+当前版本为 `1.1.1`，支持在超星学生或教师章节学习页识别当前章节的课件，读取 PDF 地址并下载，也提供“打开 PDF”入口。切换章节时会清理旧章节的文件列表。
+
+在已安装篡改猴的浏览器中点击上方安装链接，并在篡改猴页面确认安装。已经手动添加过 `1.1.0` 的设备也需要通过该链接覆盖安装一次，以保存更新地址。之后可在篡改猴中手动检查更新，或等待设定的自动检查间隔。浏览器若只显示源码，可在篡改猴“实用工具”中使用“从 URL 安装”，填入同一链接。
+
+本次发布保留用户提供脚本的 `@name`、`@namespace` 和运行逻辑，仅增加仓库及安装更新元数据，并将版本递增至 `1.1.1`。未来发布时需要递增 `@version`，安装和更新链接持续指向 `main` 分支中的同一文件。
 
 ## AI Conversation Navigator 独立维护版
 
@@ -40,4 +49,4 @@ ChatGPT Copy Fix 的 DOM/复制回归测试运行 `npm run test:copy`。浏览�
 
 ## 来源
 
-原始下载文件及 SHA-256 记录在 [imports.json](./imports.json)。Dark Model 内嵌 Dark Reader 4.9.128，保留其 MIT 许可证文本；Translator 仍遵循其原仓库的 GPL-3.0 许可证。
+早期导入脚本的原始下载文件及 SHA-256 记录在 [imports.json](./imports.json)。超星下载助手来自用户提供的 `1.1.0` 脚本，沿用其 MIT 许可证。Dark Model 内嵌 Dark Reader 4.9.128，保留其 MIT 许可证文本；Translator 仍遵循其原仓库的 GPL-3.0 许可证。

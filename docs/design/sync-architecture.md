@@ -4,7 +4,7 @@ Read this document before changing update URLs, remote storage, merge rules, or 
 
 ## Scope
 
-- Script code: AI Conversation Navigator, ChatGPT Copy Fix, and Dark Model are published from this repository. Translator remains published by `AlexbeatsZ/kiss-translator`.
+- Script code includes AI Conversation Navigator, ChatGPT Copy Fix, Dark Model, and Chaoxing Download Helper. These four scripts are published from this repository. Translator remains published by `AlexbeatsZ/kiss-translator`.
 - Runtime data: Dark Model site-mode rules and only Translator's no-auto-translate website patterns are synchronized.
 - Explicit exclusion: LinkSwift is not imported, committed, published, or referenced as an install target.
 
@@ -54,5 +54,5 @@ Translator derives its remote data exclusively from non-global rules whose `tran
 - All installable scripts parse with Node.
 - Sync core tests cover cross-device merge, deletion tombstones, deterministic ties, and independent rule/default edits.
 - Public files contain no token formats or private/Tailscale IP addresses; the only sync address embedded in Dark Model is loopback `127.0.0.1:17892`.
-- Every local script has the expected public `@updateURL`; Translator's catalog entry points to its existing publisher.
+- Every local script has public `@updateURL` and `@downloadURL` metadata pointing to its own stable Raw file on `main`. Increment `@version` when publishing an update. Preserve the installed name and namespace so existing installations can be updated in place. Translator's catalog entry points to its existing publisher.
 - ROG health, Translator's existing endpoint, and Dark Model's separate endpoint are verified after server deployment.

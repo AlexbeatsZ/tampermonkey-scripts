@@ -1,8 +1,10 @@
 # Goal
 
-将 Chrome 中由篡改猴管理的用户脚本（排除 LinkSwift）发布到可供篡改猴自动更新的 GitHub 仓库，并为 Translator 与 Dark Model 提供加密的多设备设置同步。
+将 Chrome 中由篡改猴管理的用户脚本（排除 LinkSwift）及超星下载助手发布到可供篡改猴自动更新的 GitHub 仓库，并为 Translator 与 Dark Model 提供加密的多设备设置同步。
 
 # Current State
+
+- 2026-11-11: 超星下载助手 `1.1.1` 位于 `scripts/chaoxing-download-helper.user.js`，从用户提供的 `1.1.0` 导入。名称 `超星下载助手`、命名空间 `local.chaoxing.courseware` 和运行逻辑保留。安装与更新均使用公开仓库 `main` 分支的固定 Raw 地址，未来发布需递增 `@version`。
 
 - 2026-10-04: AI Conversation Navigator `102.0.2-local` identifies AlexbeatsZ as the independent maintainer; homepage/source/support/update/download metadata targets this repository. Runtime matches the user's supplied `102.0.1` script. Release metadata checks and full validation (20 existing tests) pass. Keep the legacy name/namespace and GM keys for installation/bookmark continuity. Design: `docs/design/ai-conversation-navigator.md`; read it before changing identity, release metadata or bookmark storage.
 
@@ -13,7 +15,7 @@
 
 - 已从下载目录导入 AI Conversation Navigator、ChatGPT Copy Fix、Dark Model；LinkSwift 未导入。来源 SHA-256 记录在 `imports.json`。
 - Translator 已由 `AlexbeatsZ/kiss-translator` 和 GitHub Pages 发布，不在本仓库重复维护。
-- 三个本地脚本已写入公开 `@updateURL`；公开仓库为 `AlexbeatsZ/tampermonkey-scripts`，默认分支 `main`。
+- 四个本地脚本已写入公开 `@updateURL` 和 `@downloadURL`，公开仓库为 `AlexbeatsZ/tampermonkey-scripts`，默认分支 `main`。
 - Dark Model 2.1.1 直接接受 GitHub Gist 专用令牌与加密口令，按规则合并并端到端加密；个人网站列表已从公开源码默认值移除。
 - Translator v2.0.29 在网页翻译页提供可见同步卡片，只同步 `transOpen: "false"` 的“不自动翻译的网站”域名列表；语言、引擎、API、快捷键、调优、字幕和其他规则字段一律不同步。
 - `tampermonkey-scripts` 的 `main` 与 `codex/userscript-sync` 已发布提交 `8cb1a39`；Dark Model Raw 返回 v2.1.1，使用直接 Gist 凭据入口，远端树无 LinkSwift。
