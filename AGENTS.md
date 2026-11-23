@@ -4,6 +4,8 @@
 
 # Current State
 
+- 2026-11-23: Dark Model 2.1.3 makes the sync address configurable. Default is `127.0.0.1:17892` on ROG. On other devices, enter the ROG MagicDNS FQDN on port 17892 in the settings. The server repository was renamed `dark-model-sync-server`, now syncs Dark Model only, and is exposed through tailscale serve. KISS/Translator sync is retired.
+
 - 2026-11-11: 超星下载助手 `1.1.1` 位于 `scripts/chaoxing-download-helper.user.js`，从用户提供的 `1.1.0` 导入。名称 `超星下载助手`、命名空间 `local.chaoxing.courseware` 和运行逻辑保留。安装与更新均使用公开仓库 `main` 分支的固定 Raw 地址，未来发布需递增 `@version`。
 
 - 2026-10-04: AI Conversation Navigator `102.0.2-local` identifies AlexbeatsZ as the independent maintainer; homepage/source/support/update/download metadata targets this repository. Runtime matches the user's supplied `102.0.1` script. Release metadata checks and full validation (20 existing tests) pass. Keep the legacy name/namespace and GM keys for installation/bookmark continuity. Design: `docs/design/ai-conversation-navigator.md`; read it before changing identity, release metadata or bookmark storage.

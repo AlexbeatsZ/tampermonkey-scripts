@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Dark Model
 // @namespace    https://darkreader.org/
-// @version      2.1.2-dr4.9.128
+// @version      2.1.3-dr4.9.128
 // @description  Per-site Dark Reader/filter/off controller with private ROG sync and hourly pull.
 // @author       Dark Reader Ltd.; controller adapter assembled for local use
 // @homepageURL  https://github.com/AlexbeatsZ/tampermonkey-scripts
@@ -18,6 +18,8 @@
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
+// @connect      ts.net
+// @connect      *
 // @license      MIT
 // ==/UserScript==
 
@@ -74,7 +76,8 @@ const __viaDarkReaderChrome={runtime:{}};/**
     const CONFIG_KEY = '__unified_dark_mode_controller_v1__';
     const SYNC_STATE_KEY = '__dark_model_local_sync_v1__';
     const LEGACY_SYNC_STATE_KEY = '__dark_model_gist_sync_v1__';
-    const LOCAL_SYNC_ENDPOINT = 'http://127.0.0.1:17892';
+    const SYNC_ENDPOINT_KEY = '__dark_model_sync_endpoint_v1__';
+    const DEFAULT_SYNC_ENDPOINT = 'http://127.0.0.1:17892';
     const SYNC_INTERVAL_MS = 60 * 60 * 1000;
     const syncCore = globalThis.DarkModelSyncCore;
     const MODES = Object.freeze({
@@ -233,6 +236,32 @@ const __viaDarkReaderChrome={runtime:{}};/**
         }, delay);
     }
 
+    function normalizeSyncEndpoint(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return DEFAULT_SYNC_ENDPOINT;
+        let url;
+        try { url = new URL(raw); } catch (_) { throw new Error('同步服务地址无效'); }
+        if (!/^https?:$/.test(url.protocol) || url.search || url.hash || (url.pathname && url.pathname !== '/')) {
+            throw new Error('同步服务地址只能是 http(s)://主机:端口');
+        }
+        return `${url.protocol}//${url.host}`;
+    }
+
+    const injectedTransport = globalThis.__DARK_MODEL_SYNC_TRANSPORT__ || null;
+
+    function readSyncEndpoint() {
+        if (injectedTransport?.endpoint) return normalizeSyncEndpoint(injectedTransport.endpoint);
+        try { return normalizeSyncEndpoint(GM_getValue(SYNC_ENDPOINT_KEY, DEFAULT_SYNC_ENDPOINT)); }
+        catch (_) { return DEFAULT_SYNC_ENDPOINT; }
+    }
+
+    function saveSyncEndpoint(value) {
+        const endpoint = normalizeSyncEndpoint(value);
+        if (endpoint === DEFAULT_SYNC_ENDPOINT) GM_deleteValue(SYNC_ENDPOINT_KEY);
+        else GM_setValue(SYNC_ENDPOINT_KEY, endpoint);
+        return endpoint;
+    }
+
     function localSyncRequest(method, requestPath, body) {
         if (typeof GM_xmlhttpRequest !== 'function') {
             return Promise.reject(new Error('GM_xmlhttpRequest is unavailable'));
@@ -240,9 +269,10 @@ const __viaDarkReaderChrome={runtime:{}};/**
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method,
-                url: `${LOCAL_SYNC_ENDPOINT}${requestPath}`,
+                url: `${readSyncEndpoint()}${requestPath}`,
                 headers: {
                     Accept: 'application/json',
+                    ...(injectedTransport?.token ? { Authorization: `Bearer ${injectedTransport.token}` } : {}),
                     ...(body ? { 'Content-Type': 'application/json' } : {}),
                 },
                 data: body ? JSON.stringify(body) : undefined,
@@ -367,7 +397,7 @@ const __viaDarkReaderChrome={runtime:{}};/**
         if (!syncConfigured()) return '当前环境不支持本地同步';
         const state = readSyncState();
         const lastSync = state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString() : '尚未同步';
-        return `ROG 本地代理 · 上次同步 ${lastSync}${state.dirty ? " · 有待上传变更" : ""}`;
+        return `${readSyncEndpoint()} · 上次同步 ${lastSync}${state.dirty ? " · 有待上传变更" : ""}`;
     }
 
     function splitPattern(pattern) {
@@ -658,7 +688,11 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
 
     <div class="card">
       <div class="label">设备同步（每 1 小时自动检查，本地修改会尽快上传）</div>
-      <div class="small">仅同步 Dark Model 的默认模式和网站策略。本机通过 127.0.0.1:17892 连接 ROG；OMEN/Mac 由 SSH over Tailscale 提供本地转发。数据在 ROG 端使用 AES-256-GCM 加密落盘。</div>
+      <div class="small">仅同步 Dark Model 的默认模式和网站策略。ROG 本机使用默认地址 127.0.0.1:17892；其他设备填写 ROG 的 Tailscale 地址（例如 http://&lt;ROG 的 MagicDNS 名&gt;.ts.net:17892）。数据在 ROG 端使用 AES-256-GCM 加密落盘。</div>
+      <div class="row" style="margin-top:10px">
+        <input id="syncEndpoint" type="text" spellcheck="false" style="flex:1;min-width:220px" placeholder="http://127.0.0.1:17892">
+        <button id="saveSyncEndpoint">保存地址</button>
+      </div>
       <div class="row" style="margin-top:10px">
         <button class="primary" id="connectSync">连接并同步</button>
         <button id="syncNow">立即同步</button>
@@ -817,6 +851,16 @@ textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-fam
             renderRules();
             refreshCurrentInfo();
             status('已恢复初始迁移规则。刷新页面后应用。');
+        });
+
+        $('#syncEndpoint').value = readSyncEndpoint();
+        $('#saveSyncEndpoint').addEventListener('click', () => {
+            try {
+                $('#syncEndpoint').value = saveSyncEndpoint($('#syncEndpoint').value);
+                syncStatus(`已保存同步地址：${readSyncEndpoint()}。点击“连接并同步”测试。`);
+            } catch (error) {
+                syncStatus(error.message);
+            }
         });
 
         $('#connectSync').addEventListener('click', async () => {
